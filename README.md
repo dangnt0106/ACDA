@@ -1,2 +1,2 @@
 # ACDA
-automatically convert data to anki
+automatically AI convert data to anki
