@@ -20,8 +20,8 @@ async def convert_text_to_speech(text: str, voice="ja-JP-KeitaNeural"):
     try:
          # Tạo thư mục outputs/mmdd với ngày hiện tại
         today = datetime.datetime.now().strftime("%m%d")
-        #output_dir = f"F:/Projects/ACDA/outputs/{today}"
-        output_dir = "F:/Projects/ACDA/outputs/test"
+        output_dir = f"outputs/{today}"
+        #output_dir = "outputs/test"
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
         # Đặt tên file đầu ra dựa trên input text (loại bỏ ký tự đặc biệt)

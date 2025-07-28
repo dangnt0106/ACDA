@@ -4,3 +4,5 @@ pytesseract
 pillow
 edge-tts
 dotenv
+gradio
+python-certifi-win32
