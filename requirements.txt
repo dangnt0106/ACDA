@@ -2,4 +2,7 @@ boto3
 botocore
 pytesseract
 pillow
+edge-tts
 dotenv
+gradio
+python-certifi-win32
