@@ -3,3 +3,4 @@ botocore
 pytesseract
 pillow
 edge-tts
+dotenv
