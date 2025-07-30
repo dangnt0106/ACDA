@@ -6,24 +6,16 @@ import csv
 import shutil
 import datetime
 import hashlib
-from pydub import AudioSegment
-from pydub.utils import which
 import edge_tts
+from pydub import AudioSegment  
+from config.config import (
+    ANKI_MEDIA_DIR,
+    DECK_NAME,
+    VOICE_JA,
+    VOICE_VI,
+    OUTPUT_BASE_DIR)
 
-# ==== CONFIGURATION ====
-# Add ffmpeg path to system PATH at runtime
 
-FFMPEG_PATH = r"F:/Projects/ACDA/ffmpeg/bin/ffmpeg.exe"
-FFPROBE_PATH = r"F:/Projects/ACDA/ffmpeg/bin/ffprobe.exe"
-ANKI_MEDIA_DIR = r"C:/Users/ADMIN/AppData/Roaming/Anki2/Người dùng 1/collection.media"
-DECK_NAME = "TEST1"
-VOICE_JA = "ja-JP-KeitaNeural"
-VOICE_VI = "vi-VN-HoaiMyNeural"
-OUTPUT_BASE_DIR = "outputs"
-
-# ==== SETUP FFMPEG ====
-AudioSegment.converter = FFMPEG_PATH
-AudioSegment.ffprobe = FFPROBE_PATH
 
 # ==== SETUP IMPORT PATH ====
 ffmpeg_dir = r"ffmpeg/bin"
@@ -42,7 +34,43 @@ def clean_filename(text: str, fallback: str = "audio") -> str:
     return f"{cleaned}" if cleaned else fallback
 
 # ==== TEXT-TO-SPEECH ====
-async def convert_text_to_speech(text: str, voice: str, save_dir: str) -> str:
+async def convert_text_to_speech(text: str, voice="ja-JP-KeitaNeural"):
+    """
+    Chuyển đổi văn bản thành giọng nói và lưu vào tệp MP3.
+
+    Args:
+        text (str): Văn bản cần chuyển đổi.
+        voice (str): Tên giọng đọc (ví dụ: "ja-JP-KeitaNeural", "en-US-JennyNeural").
+        output_path (str): Đường dẫn đầy đủ đến tệp MP3 đầu ra (ví dụ: "outputs/my_audio.mp3").
+        rate (str, optional): Tốc độ giọng đọc (ví dụ: "+50%", "-20%", "medium"). Mặc định là "medium".
+    """
+    try:
+         # Tạo thư mục outputs/mmdd với ngày hiện tại
+        today = datetime.datetime.now().strftime("%m%d")
+        output_dir = f"outputs/{today}"
+        #output_dir = "outputs/test"
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        # Đặt tên file đầu ra dựa trên input text (loại bỏ ký tự đặc biệt)
+        chars_to_remove = ['.', '。', '!','_', ' ', '　','\n']  # Thêm các ký tự cần loại bỏ
+        text_cleaned_list = [char for char in text if char not in chars_to_remove]
+        safe_text = "".join(text_cleaned_list)
+        output_file = os.path.join(output_dir, f"{safe_text}.mp3")
+        #output_file = os.path.join(output_dir)
+        #print(f"Đang chuyển đổi '{text}' với giọng '{voice}' và tốc độ '{rate}'...")
+        communicator = edge_tts.Communicate(text, voice)
+        await communicator.save(output_file)
+       
+
+        print(f"Đã lưu tệp MP3 thành công tại: {output_file}")
+        return output_file
+
+    except Exception as e:
+        print(f"Đã xảy ra lỗi khi chuyển đổi văn bản thành giọng nói: {e}")
+        return None
+    
+# ==== TEXT-TO-SPEECH ====
+async def convert_text_to_speech2(text: str, voice: str, save_dir: str) -> str:
     try:
         os.makedirs(save_dir, exist_ok=True)
         filename = clean_filename(text) + ".mp3"
@@ -162,8 +190,8 @@ async def process_mixed_text(input_text: str):
         ja_voice = "ja-JP-KeitaNeural"
         vi_voice = "vi-VN-HoaiMyNeural"
 
-        ja_audio = await convert_text_to_speech(ja_text, ja_voice, output_dir)
-        vi_audio = await convert_text_to_speech(vi_text, vi_voice, output_dir)
+        ja_audio = await convert_text_to_speech2(ja_text, ja_voice, output_dir)
+        vi_audio = await convert_text_to_speech2(vi_text, vi_voice, output_dir)
 
         return {"ja_audio": ja_audio, "vi_audio": vi_audio}
 
@@ -174,60 +202,68 @@ async def process_mixed_text(input_text: str):
 # ==== PROCESS MIXED TEXT – STABLE VERSION ====
 async def process_mixed_text(input_text: str):
     try:
-        # Remove [ ] if present
-        if input_text.startswith("[") and input_text.endswith("]"):
-            content = input_text[1:-1].strip()
-        else:
-            content = input_text.strip()
+        content = input_text.strip()
 
-        # Split by first period
+        # Tách bằng dấu chấm đầu tiên
         parts = [p.strip() for p in content.split('.', maxsplit=1)]
-        if len(parts) != 2:
-            log("⚠️ Failed to split input into two parts.")
-            return None
 
-        ja_text, vi_text = parts
+        ja_text = ""
+        vi_text = ""
+
+        if len(parts) == 1:
+            # Chỉ có một phần
+            text = parts[0]
+            if re.search(r'[\u3040-\u30ff\u4e00-\u9faf]', text):  # Ký tự Kana/Kanji
+                ja_text = text
+            else:
+                vi_text = text
+        elif len(parts) == 2:
+            ja_text, vi_text = parts
+
         today = datetime.datetime.now().strftime("%m%d")
         output_dir = os.path.join(OUTPUT_BASE_DIR, today)
         os.makedirs(output_dir, exist_ok=True)
 
-        # === Generate Japanese audio ===
-        ja_audio = await convert_text_to_speech(ja_text, VOICE_JA, output_dir)
-        if not ja_audio or not os.path.isfile(ja_audio):
-            log("❌ Failed to generate Japanese audio.")
-            return None
+        output_paths = {}
 
-        # === Generate Vietnamese audio ===
-        vi_hash = hashlib.md5(vi_text.encode("utf-8")).hexdigest()[:6]
-        vi_filename = f"vn_{vi_hash}.mp3"
-        vi_path = os.path.join(output_dir, vi_filename)
+        # === Japanese TTS ===
+        if ja_text:
+            ja_audio = await convert_text_to_speech2(ja_text, VOICE_JA, output_dir)
+            if ja_audio:
+                output_paths["ja"] = ja_audio
+            else:
+                log("❌ Failed to generate Japanese audio.")
 
-        if os.path.exists(vi_path):
-            os.remove(vi_path)
+        # === Vietnamese TTS ===
+        if vi_text:
+            vi_hash = hashlib.md5(vi_text.encode("utf-8")).hexdigest()[:6]
+            vi_filename = f"vn_{vi_hash}.mp3"
+            vi_path = os.path.join(output_dir, vi_filename)
 
-        try:
-            communicator = edge_tts.Communicate(vi_text, VOICE_VI)
-            await communicator.save(vi_path)
-            log(f"✅ Vietnamese audio saved: {vi_path}")
-        except Exception as e:
-            log(f"❌ Vietnamese TTS error: {e}")
-            return None
+            if os.path.exists(vi_path):
+                os.remove(vi_path)
 
-        if not os.path.exists(vi_path):
-            log("❌ Vietnamese audio file not found after saving.")
-            return None
+            try:
+                communicator = edge_tts.Communicate(vi_text, VOICE_VI)
+                await communicator.save(vi_path)
+                log(f"✅ Vietnamese audio saved: {vi_path}")
+                output_paths["vi"] = vi_path
+            except Exception as e:
+                log(f"❌ Vietnamese TTS error: {e}")
 
-        # === Merge both ===
-        merged_filename = clean_filename(ja_text + "_vn") + "_merged.mp3"
-        merged_path = os.path.join(output_dir, merged_filename)
+        # === Merge nếu có cả hai ===
+        if "ja" in output_paths and "vi" in output_paths:
+            merged_filename = clean_filename(ja_text + "_vn") + "_merged.mp3"
+            merged_path = os.path.join(output_dir, merged_filename)
 
-        merged_audio = merge_audio_files(ja_audio, vi_path, merged_path)
-        if merged_audio:
-            log(f"✅ Final merged audio available at: {merged_audio}")
-            return merged_audio
-        else:
-            log("❌ Failed to merge audio files.")
-            return None
+            merged_audio = merge_audio_files(output_paths["ja"], output_paths["vi"], merged_path)
+            if merged_audio:
+                output_paths["merged"] = merged_audio
+                log(f"✅ Merged audio available at: {merged_audio}")
+            else:
+                log("❌ Failed to merge audio files.")
+
+        return output_paths
 
     except Exception as e:
         log(f"❌ Processing error: {e}")
@@ -235,22 +271,22 @@ async def process_mixed_text(input_text: str):
 
 
 
+# # ==== MAIN ====
+# async def main():
+#     # # Japanese example
+#     # await convert_text_to_speech_multi("私は猫が好きです. Tôi thích nuôi mèo", lang="ja+vi")
+#     # # Vietnamese example
+#     # await convert_text_to_speech_multi("Tôi thích nuôi mèo", lang="vi")
+#     sample_input = "私は猫が好きです. Tôi thích ăn mỳ"
+#     merged_file = await process_mixed_text(sample_input)
+#     if merged_file:
+#         log(f"Final merged audio available at: {merged_file}")
+#     else:
+#         log("❌ Failed to generate merged audio.")
 
-# ==== MAIN ====
-async def main():
-    # # Japanese example
-    # await convert_text_to_speech_multi("私は猫が好きです. Tôi thích nuôi mèo", lang="ja+vi")
-    # # Vietnamese example
-    # await convert_text_to_speech_multi("Tôi thích nuôi mèo", lang="vi")
-    sample_input = "私は猫が好きです. Tôi thích ăn mỳ"
-    merged_file = await process_mixed_text(sample_input)
-    if merged_file:
-        log(f"Final merged audio available at: {merged_file}")
-    else:
-        log("❌ Failed to generate merged audio.")
+# if __name__ == "__main__":
+#     # csv_file = "F:/Japanese/kaiwa/kaiwa_pv.csv"
+#     # output_files = asyncio.run(process_csv_and_generate_audio(csv_file))
+#     # print(f"\n✅ Processing complete. Total audio files created: {len(output_files)}")
+#     asyncio.run(main())
 
-if __name__ == "__main__":
-    # csv_file = "F:/Japanese/kaiwa/kaiwa_pv.csv"
-    # output_files = asyncio.run(process_csv_and_generate_audio(csv_file))
-    # print(f"\n✅ Processing complete. Total audio files created: {len(output_files)}")
-    asyncio.run(main())
