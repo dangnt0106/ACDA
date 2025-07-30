@@ -1,21 +1,4 @@
-import gradio as gr
-# import functions.text_to_speech as tts
+from gui.app import launch_gui
 
-
-
-# demo = gr.Interface(
-#     fn=tts.text_to_speech, 
-#     inputs=[gr.Text(label="Text"),],
-#     outputs=gr.Audio(label="Audio"),
-#     title="ACDA Chatbot",
-#     description="Convert Japanese text to speech using Amazon Polly.",)
-# demo.launch()
-
-import functions.text_to_speech_2 as tts
-demo = gr.Interface(
-    fn=tts.convert_text_to_speech, 
-    inputs=[gr.Text(label="Text"),],
-    outputs=gr.Audio(label="Audio"),
-    title="ACDA Chatbot",
-    description="Convert text to speech using Edge TTS.",)
-demo.launch()
+if __name__ == "__main__":
+    launch_gui()
