@@ -6,3 +6,4 @@ edge-tts
 dotenv
 gradio
 python-certifi-win32
+gTTS

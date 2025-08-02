@@ -1,12 +1,21 @@
 # tts/edge_tts_wrapper.py
 import edge_tts
 import os
-from tts_engine.audio_utils import ensure_directory
+from tts.audio_utils import ensure_output_dir
 from utils.log import log
+from tts.base import BaseTTS
+
+
+class EdgeTTS(BaseTTS):
+    async def synthesize(self, text: str, voice: str, output_path: str) -> str:
+        communicate = edge_tts.Communicate(text, voice)
+        await communicate.save(output_path)
+        return output_path
+    
 
 async def convert_text_to_speech(text: str, voice: str, output_dir: str):
     try:
-        ensure_directory(output_dir)
+        ensure_output_dir(output_dir)
         filename = f"{text}.mp3"
         output_path = os.path.join(output_dir, filename)
 

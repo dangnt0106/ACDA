@@ -19,8 +19,11 @@ VOICE_VI_TTS = [
     "vi-VN-HoaiMyNeural",
     "vi-VN-NamMinhNeural"
 ]
+GOOGLE_JA_VOICES = ["ja"]  # Google gTTS chỉ hỗ trợ mã ngôn ngữ, không chọn giọng cụ thể
+GOOGLE_VI_VOICES = ["vi"]
 # OUTPUT
 OUTPUT_BASE_DIR = "outputs"
 
 # Setup ffmpeg env
-PATH=os.environ["PATH"] = os.path.dirname(FFMPEG_PATH) + os.pathsep + os.environ.get("PATH", "")
+os.environ["PATH"] = os.path.dirname(FFMPEG_PATH) + os.pathsep + os.environ.get("PATH", "")
+os.environ["PATH"] = os.path.dirname(FFPROBE_PATH) + os.pathsep + os.environ.get("PATH", "")
