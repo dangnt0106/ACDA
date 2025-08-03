@@ -41,19 +41,6 @@ def launch_gui():
                         audio_out = gr.Audio(label="Kết quả Audio", type="filepath", interactive=False)
                 btn.click(fn=run_async, inputs=[input_text, ja_voice_dropdown, vi_voice_dropdown],
                           outputs=[status, audio_out])
-                
-            # with gr.Tab("Azure"):
-            #     gr.Markdown("### Nhập văn bản để tạo audio (Azure API)")
-            #     with gr.Row():
-            #         with gr.Column(scale=2):
-            #             input_text2 = gr.Textbox(label="Nhập văn bản [JA. VI]", lines=4, placeholder="今日は暑いです。 Trời hôm nay nóng quá.")
-            #             ja_voice_dropdown2 = gr.Dropdown(choices=VOICE_JA_TTS, label="Voice tiếng Nhật", value=VOICE_JA_TTS[0])
-            #             vi_voice_dropdown2 = gr.Dropdown(choices=VOICE_VI_TTS, label="Voice tiếng Việt", value=VOICE_VI_TTS[0])
-            #             btn2 = gr.Button("🎧 Tạo Audio")
-            #             status2 = gr.Textbox(label="Trạng thái", interactive=False)
-            #         with gr.Column(scale=3):
-            #             audio_out2 = gr.Audio(label="Kết quả Audio", type="filepath", interactive=False)
-            #     btn2.click(fn=run_async, inputs=[input_text2, ja_voice_dropdown2, vi_voice_dropdown2], outputs=[status2, audio_out2])
 
             with gr.Tab("Google"):
                 gr.Markdown("### TTS bằng Google gTTS (miễn phí)")

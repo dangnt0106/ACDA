@@ -5,11 +5,11 @@ class callAnki:
     def __init__(self, deck_name):
         self.deck_name = deck_name
 
-    def request2(self, action, **params):
+    def request(self, action, **params):
         return {'action': action, 'params': params, 'version': 6}
 
     def invoke(self, action, **params):
-        requestJson = json.dumps(self.request2(action, **params)).encode('utf-8')
+        requestJson = json.dumps(self.request(action, **params)).encode('utf-8')
         response = json.load(urllib.request.urlopen(
             urllib.request.Request('http://127.0.0.1:8765', data=requestJson)
         ))
