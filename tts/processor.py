@@ -113,39 +113,7 @@ async def process_mixed_text_with_google(text: str, ja_voice: str, vi_voice: str
 
 from tts.audio_utils import load_audio_to_np, merge_audios_to_np
 
-async def preview_mixed_text_with_edge(text: str, ja_voice: str, vi_voice: str):
-    result = await process_mixed_text_with_edge(text, ja_voice, vi_voice)
-    if not result:
-        return "❌ Không thể tạo âm thanh.", None
 
-    audios = []
-    if "ja" in result:
-        audios.append(load_audio_to_np(result["ja"]))
-    if "vi" in result:
-        audios.append(load_audio_to_np(result["vi"]))
-
-    sr, merged_np = merge_audios_to_np(audios)
-    return "✅ Preview thành công", (sr, merged_np)
-
-
-# Bạn cần thêm synthesize_to_np trong GoogleTTS nếu chưa có
-async def preview_mixed_text_with_google(text: str, ja_voice: str, vi_voice: str):
-    from tts.google_tts_wrapper import GoogleTTS
-    tts = GoogleTTS()
-
-    ja_text, vi_text = split_mixed_text(text)
-    audios = []
-
-    if ja_text:
-        sr, np_ja = await tts.synthesize_to_np(ja_text, ja_voice)
-        audios.append((sr, np_ja))
-
-    if vi_text:
-        sr, np_vi = await tts.synthesize_to_np(vi_text, vi_voice)
-        audios.append((sr, np_vi))
-
-    sr, merged_np = merge_audios_to_np(audios)
-    return "✅ Preview thành công", (sr, merged_np)
 # import asyncio
 # async def test_google_tts():
 #     text = "私は猫が好きです.Tôi thích mèo"
