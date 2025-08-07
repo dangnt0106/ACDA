@@ -28,9 +28,8 @@ async def process_mixed_text_with_edge(input_text, ja_voice, vi_voice):
         elif len(parts) == 2:
             ja_text, vi_text = parts
 
-        output_dir = os.path.join(OUTPUT_BASE_DIR, datetime.datetime.now().strftime('%m%d'))
-        os.makedirs(output_dir, exist_ok=True)
-
+        output_dir = ensure_output_dir(OUTPUT_BASE_DIR)
+        
         output_paths = {}
 
         if ja_text:
@@ -40,7 +39,7 @@ async def process_mixed_text_with_edge(input_text, ja_voice, vi_voice):
                 log(f'✅ Japanese audio saved: {ja_path}')
         if vi_text:
             vi_hash = hashlib.md5(vi_text.encode()).hexdigest()[:6]
-            vi_filename = f'vn_{vi_hash}.mp3'
+            #vi_filename = f'vn_{vi_hash}.mp3'
             vi_path = await convert_text_to_speech(vi_text, vi_voice, output_dir)
             if vi_path:
                 output_paths['vi'] = vi_path
@@ -64,6 +63,7 @@ async def process_mixed_text_with_google(text: str, ja_voice: str, vi_voice: str
     ja_text, vi_text = split_mixed_text(text)
 
     output_dir = ensure_output_dir(OUTPUT_BASE_DIR)
+        
     content = text.strip()
     parts = [p.strip() for p in re.split(r'[。／.]', content, maxsplit=1)]
 
@@ -80,7 +80,7 @@ async def process_mixed_text_with_google(text: str, ja_voice: str, vi_voice: str
 
     # Xử lý tiếng Nhật
     if ja_text:
-        ja_path = os.path.join(output_dir, f"{ja_text}_ja.mp3")
+        ja_path = os.path.join(output_dir, f"{ja_text}.mp3")
         try:
             await tts.synthesize(ja_text, ja_voice, ja_path)
             print(f"[INFO] ✅ Japanese audio saved: {ja_path}")
@@ -110,9 +110,6 @@ async def process_mixed_text_with_google(text: str, ja_voice: str, vi_voice: str
         return "✅ Đã tạo file tiếng Việt.", vi_path
     else:
         return "❌ Không tạo được file âm thanh.", ""
-
-from tts.audio_utils import load_audio_to_np, merge_audios_to_np
-
 
 # import asyncio
 # async def test_google_tts():
