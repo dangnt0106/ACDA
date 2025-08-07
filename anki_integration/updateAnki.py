@@ -1,64 +1,96 @@
+import asyncio
 import csv
-import json
-import urllib.request
+import shutil
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-def request(action, **params):
-    return {'action': action, 'params': params, 'version': 6}
-
-def invoke(action, **params):
-    requestJson = json.dumps(request(action, **params)).encode('utf-8')
-    response = json.load(urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8765', requestJson)))
-    if len(response) != 2:
-        raise Exception('response has an unexpected number of fields')
-    if 'error' not in response:
-        raise Exception('response is missing required error field')
-    if 'result' not in response:
-        raise Exception('response is missing required result field')
-    if response['error'] is not None:
-        raise Exception(response['error'])
-    return response['result']
+from anki_integration.callAnki import callAnki
+from tts.audio_utils import clean_filename
+from config.config import ANKI_MEDIA_DIR,DECK_NAME
+from tts.processor import (process_mixed_text_with_edge,process_mixed_text_with_google)
 
 # Đọc dữ liệu từ file CSV với dấu phân cách là semicolon
-csv_file = r"F:\studyingJapanese\csv\NguPhapN4_VD.csv"
+csv_file = r"F:/studyingJapanese/csv/output.csv"
 
+DECK_NAME = "TEST1"
 count_update = 0
 count_new = 0
 count_delete = 0
-desk = "NguPhap_Japanese"
-tags = ["N4", "grammar"]
+#desk = "NguPhap_Japanese"
+tags = ["N4"]
+anki = callAnki(DECK_NAME)
+
+# src = r"F:\\Japanese\\kaiwa\\audio\\自己紹介をしてください.mp3"
+
+# shutil.copy(src, ANKI_MEDIA_DIR)
 
 
 with open(csv_file, mode='r', encoding='utf-8') as csvfile:
     reader = csv.reader(csvfile, delimiter=';')
     for row in reader:
-        if not row or len(row) < 2:
+        if not row or len(row) < 2:            
             continue  # Bỏ qua dòng không đủ dữ liệu
-        front = row[0]
-        back = row[1]
+        
+        front = clean_filename(row[0])
+        back = clean_filename(row[1])        
+
+        # Tạo audio cho front bằng edge_tts
+         # --- Tạo file audio bằng edge-tts hoặc google ---
+        # Chọn engine: "edge" hoặc "google"
+        engine = "goole"
+        if engine == "edge":
+            result_front = asyncio.run(process_mixed_text_with_edge(front, ja_voice="ja-JP-NanamiNeural", vi_voice="vi-VN-PhuongNeural"))
+            result_back = asyncio.run(process_mixed_text_with_edge(back, ja_voice="ja-JP-NanamiNeural", vi_voice="vi-VN-PhuongNeural"))
+            audio_path_front = result_front.get("merged") or result_front.get("ja") or result_front.get("vi")
+            audio_path_back = result_back.get("merged") or result_back.get("ja") or result_back.get("vi")
+
+        else:
+            status_front, result_front = asyncio.run(process_mixed_text_with_google(front, ja_voice="ja", vi_voice="vi"))
+            status_back, result_back = asyncio.run(process_mixed_text_with_google(back, ja_voice="ja", vi_voice="vi"))
+            audio_path_front = result_front
+            audio_path_back = result_back
+        # Lấy tên file audio để lưu vào trường Audio 1,2
+        audio_front = clean_filename(os.path.basename(audio_path_front))
+        audio_back = clean_filename(os.path.basename(audio_path_back))
+        audio_path = os.path.join(ANKI_MEDIA_DIR, audio_front)
+        audio_path_2 = os.path.join(ANKI_MEDIA_DIR, audio_back)
+
+        if not os.path.exists(audio_path):
+            shutil.copy(audio_path_front, audio_path)
+        if not os.path.exists(audio_path_2):
+            shutil.copy(audio_path_back, audio_path_2)
+
+        audio_field_front = f"[sound:{audio_front}]"
+        audio_field_back = f"[sound:{audio_back}]"
         # Tìm note trong deck 'test1' có Front giống dữ liệu csv
-        note_ids = invoke('findNotes', query=f'deck:{desk} Front:"{front}"')
+        note_ids = anki.invoke('findNotes', query=f'deck:{DECK_NAME} Front:"{front}"')
         if note_ids:
-            # Nếu tìm thấy, cập nhật trường Back
+            # Nếu tìm thấy, cập nhật trường Back            
             for note_id in note_ids:
-                update_result = invoke('updateNoteFields', note={
+                update_result =anki.invoke('updateNoteFields', note={
                     'id': note_id,
-                    'fields': {'Back': back}
+                    'fields': {'Back': back, 'Audio 1': audio_field_front, 'Audio 2': audio_field_back}
                 })
-                #print(f"Cập nhật note {note_id}: {front} -> {back}, kết quả: {update_result}")
                 count_update += 1
         else:
             # Nếu không tìm thấy, thêm mới note
+            # Kiểm tra lại lần nữa để tránh duplicate do AnkiConnect
+            note_ids = anki.invoke('findNotes', query=f'deck:{DECK_NAME} Front:"{front}"')
+            if note_ids:
+                continue            
             note = {
-                "deckName": desk,
-                "modelName": "Basic",
-                "fields": {
-                    "Front": front,
-                    "Back": back
-                },
-                "tags": tags
+                    "deckName": DECK_NAME,
+                    "modelName": "Basic",
+                    "fields": {
+                        "Front": front,
+                        "Back": back,
+                        "Audio 1": audio_field_front,
+                        "Audio 2": audio_field_back
+                    },
+                    "tags": tags
             }
-            result = invoke("addNote", note=note)
-            #print(f"Thêm mới note: {front} -> {back}, kết quả: {result}")
+            result = anki.invoke("addNote", note=note)
             count_new += 1
 
 print(f"Tổng số note được update: {count_update}")
