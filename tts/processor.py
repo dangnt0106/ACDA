@@ -19,14 +19,19 @@ async def process_mixed_text_with_edge(input_text, ja_voice, vi_voice):
     
     try:
         content = input_text.strip()
-        parts = [p.strip() for p in re.split(r'[。／.]', content, maxsplit=1)]
+        parts = [p.strip() for p in re.split(r'[。／.→]', content, maxsplit=1)]
 
         ja_text, vi_text = "", ""
         if len(parts) == 1:
             ja_text = parts[0] if re.search(r'[\u3040-\u30ff\u4e00-\u9faf]', parts[0]) else ""
             vi_text = parts[0] if not ja_text else ""
         elif len(parts) == 2:
-            ja_text, vi_text = parts
+            if re.search(r'[\u3040-\u30ff\u4e00-\u9faf]', parts[0]):
+                ja_text = parts[0]
+                vi_text = parts[1]
+            else:
+                vi_text = parts[0]
+                ja_text = parts[1]
 
         output_dir = ensure_output_dir(OUTPUT_BASE_DIR)
         
@@ -39,8 +44,8 @@ async def process_mixed_text_with_edge(input_text, ja_voice, vi_voice):
                 log(f'✅ Japanese audio saved: {ja_path}')
         if vi_text:
             vi_hash = hashlib.md5(vi_text.encode()).hexdigest()[:6]
-            #vi_filename = f'vn_{vi_hash}.mp3'
-            vi_path = await convert_text_to_speech(vi_text, vi_voice, output_dir)
+            vi_filename = f'vn_{vi_hash}.mp3'
+            vi_path = await convert_text_to_speech(vi_text, vi_voice, os.path.join(output_dir, vi_filename))
             if vi_path:
                 output_paths['vi'] = vi_path
                 log(f'✅ Vietnamese audio saved: {vi_path}')
@@ -65,14 +70,19 @@ async def process_mixed_text_with_google(text: str, ja_voice: str, vi_voice: str
     output_dir = ensure_output_dir(OUTPUT_BASE_DIR)
         
     content = text.strip()
-    parts = [p.strip() for p in re.split(r'[。／.]', content, maxsplit=1)]
+    parts = [p.strip() for p in re.split(r'[。／.→]', content, maxsplit=1)]
 
     ja_text, vi_text = "", ""
     if len(parts) == 1:
         ja_text = parts[0] if re.search(r'[\u3040-\u30ff\u4e00-\u9faf]', parts[0]) else ""
         vi_text = parts[0] if not ja_text else ""
     elif len(parts) == 2:
-        ja_text, vi_text = parts
+        if re.search(r'[\u3040-\u30ff\u4e00-\u9faf]', parts[0]):
+            ja_text = parts[0]
+            vi_text = parts[1]
+        else:
+            vi_text = parts[0]
+            ja_text = parts[1]
 
     ja_path = None
     vi_path = None

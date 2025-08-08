@@ -14,7 +14,7 @@ def split_mixed_text(text: str) -> tuple[str, str]:
 # ==== AUDIO UTILITIES ====
 def clean_filename(text: str) -> str:
     text = re.sub(r'[<>:"/\\|?*\n\r\t]', '', text)  
-    text = text.strip().replace(" ", "_").replace(".", "")
+    #text = text.strip().replace(" ", "_").replace(".", "")
     #text = text.strip()
     return text
 
