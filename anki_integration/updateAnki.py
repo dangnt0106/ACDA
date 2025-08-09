@@ -4,13 +4,13 @@ import shutil
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
+os.environ["PATH"] += os.pathsep + os.path.abspath("ffmpeg/bin")
 from anki_integration.callAnki import callAnki
 from tts.audio_utils import clean_filename
 from config.config import ANKI_MEDIA_DIR
 from tts.processor import (process_mixed_text_with_edge, process_mixed_text_with_google)
 
-def import_csv_to_anki(
+async def import_csv_to_anki(
     csv_file: str,
     deck_name: str = "TEST1",
     tags: list = ["N4"],
@@ -29,13 +29,13 @@ def import_csv_to_anki(
             front = clean_filename(row[0])
             back = clean_filename(row[1])
             if engine == "edge":
-                result_front = asyncio.run(process_mixed_text_with_edge(front, ja_voice="ja-JP-NanamiNeural", vi_voice="vi-VN-PhuongNeural"))
-                result_back = asyncio.run(process_mixed_text_with_edge(back, ja_voice="ja-JP-NanamiNeural", vi_voice="vi-VN-PhuongNeural"))
+                result_front = await process_mixed_text_with_edge(front, ja_voice="ja-JP-NanamiNeural", vi_voice="vi-VN-PhuongNeural")
+                result_back = await process_mixed_text_with_edge(back, ja_voice="ja-JP-NanamiNeural", vi_voice="vi-VN-PhuongNeural")
                 audio_path_front = result_front.get("merged") or result_front.get("ja") or result_front.get("vi")
                 audio_path_back = result_back.get("merged") or result_back.get("ja") or result_back.get("vi")
             else:
-                status_front, audio_path_front = asyncio.run(process_mixed_text_with_google(front, ja_voice="ja", vi_voice="vi"))
-                status_back, audio_path_back = asyncio.run(process_mixed_text_with_google(back, ja_voice="ja", vi_voice="vi"))
+                status_front, audio_path_front = await process_mixed_text_with_google(front, ja_voice="ja", vi_voice="vi")
+                status_back, audio_path_back = await process_mixed_text_with_google(back, ja_voice="ja", vi_voice="vi")
 
             audio_front = clean_filename(os.path.basename(audio_path_front))
             audio_back = clean_filename(os.path.basename(audio_path_back))
@@ -78,10 +78,11 @@ def import_csv_to_anki(
 
     return {"updated": count_update, "added": count_new}
 
-# result = import_csv_to_anki(
+# import asyncio
+# result = asyncio.run(import_csv_to_anki(
 #     csv_file=r"F:/studyingJapanese/csv/output2.csv",
 #     deck_name="TEST1",
 #     tags=["N4"],
 #     engine="google"  # hoặc "edge"
-# )
+# ))
 # print(result)

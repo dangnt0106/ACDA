@@ -24,3 +24,7 @@ requests==2.32.4
 # Lint & test (dev)
 flake8==7.3.0
 pytest==8.4.1
+pytest-asyncio
+anyio==3.6.2
+pytest-tornasync
+pytest-trio

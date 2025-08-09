@@ -3,6 +3,7 @@ import re
 import datetime
 import hashlib
 import sys
+os.environ["PATH"] += os.pathsep + os.path.abspath("ffmpeg/bin")
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from tts.audio_utils import clean_filename, merge_audio_files,split_mixed_text, ensure_output_dir
 from tts.google_tts_wrapper import GoogleTTS
