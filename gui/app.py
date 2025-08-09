@@ -107,4 +107,6 @@ def launch_gui():
                     outputs=import_status,
                     show_progress=True
                 )
-    demo.launch()
+    return demo
+
+app = launch_gui()

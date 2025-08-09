@@ -1,4 +1,4 @@
-from gui.app import launch_gui
-
+import uvicorn
+from gui import app 
 if __name__ == "__main__":
-    launch_gui()
+    uvicorn.run(app,port=10000)
