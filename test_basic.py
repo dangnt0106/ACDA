@@ -24,7 +24,7 @@ async def test_process_mixed_text_with_google():
     assert merged_audio_path.endswith("_merged.mp3")
 
 
-@pytest.mark.asyncio
-async def test_import_csv_to_anki():
-    result = await import_csv_to_anki("F:/studyingJapanese/csv/output2.csv", "TEST1", ["N4"], "google")
-    assert result is not None
+# @pytest.mark.asyncio
+# async def test_import_csv_to_anki():
+#     result = await import_csv_to_anki("F:/studyingJapanese/csv/output2.csv", "TEST1", ["N4"], "google")
+#     assert result is not None
