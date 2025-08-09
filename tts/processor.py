@@ -5,11 +5,13 @@ import hashlib
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from tts.audio_utils import clean_filename, merge_audio_files,split_mixed_text, ensure_output_dir
-from tts.edge_tts_wrapper import convert_text_to_speech
 from tts.google_tts_wrapper import GoogleTTS
+from tts.edge_tts_wrapper import EdgeTTS
 from config.config import OUTPUT_BASE_DIR
 from utils.log import log
 from typing import Tuple
+
+edge_tts = EdgeTTS()
 
 async def process_mixed_text_with_edge(input_text, ja_voice, vi_voice):
     if isinstance(ja_voice, list):
@@ -37,19 +39,28 @@ async def process_mixed_text_with_edge(input_text, ja_voice, vi_voice):
         
         output_paths = {}
 
+        # Xử lý tiếng Nhật
         if ja_text:
-            ja_path = await convert_text_to_speech(ja_text, ja_voice, output_dir)
-            if ja_path:
+            ja_path = os.path.join(output_dir, f"{ja_text}.mp3")
+            try:
+                await edge_tts.synthesize(ja_text, ja_voice, ja_path)
+                log(f"[INFO] ✅ Japanese audio saved: {ja_path}")
                 output_paths['ja'] = ja_path
-                log(f'✅ Japanese audio saved: {ja_path}')
-        if vi_text:
-            vi_hash = hashlib.md5(vi_text.encode()).hexdigest()[:6]
-            vi_filename = f'vn_{vi_hash}.mp3'
-            vi_path = await convert_text_to_speech(vi_text, vi_voice, os.path.join(output_dir, vi_filename))
-            if vi_path:
-                output_paths['vi'] = vi_path
-                log(f'✅ Vietnamese audio saved: {vi_path}')
+            except Exception as e:
+                log(f"[ERROR] ❌ Edge TTS Japanese error: {e}")
+                ja_path = None
 
+        # Xử lý tiếng Việt
+        if vi_text:
+            vi_hash = hashlib.md5(vi_text.encode('utf-8')).hexdigest()[:8]
+            vi_path = os.path.join(output_dir, f"vn_{vi_hash}.mp3")
+            try:
+                await edge_tts.synthesize(vi_text, vi_voice, vi_path)
+                log(f"[INFO] ✅ Vietnamese audio saved: {vi_path}")
+                output_paths['vi'] = vi_path
+            except Exception as e:
+                log(f"[ERROR] ❌ Edge TTS Vietnamese error: {e}")
+                vi_path = None
         if 'ja' in output_paths and 'vi' in output_paths:
             merged_path = os.path.join(output_dir, clean_filename(ja_text) + '_vn_merged.mp3')
             merged = merge_audio_files(output_paths['ja'], output_paths['vi'], merged_path)
@@ -80,10 +91,11 @@ async def process_mixed_text_with_google(text: str, ja_voice: str, vi_voice: str
         if re.search(r'[\u3040-\u30ff\u4e00-\u9faf]', parts[0]):
             ja_text = parts[0]
             vi_text = parts[1]
-        else:
+        elif re.search(r'[\u3040-\u30ff\u4e00-\u9faf]', parts[1]):
             vi_text = parts[0]
             ja_text = parts[1]
-
+        else:
+            vi_text = parts[0]
     ja_path = None
     vi_path = None
     tts = GoogleTTS()
@@ -122,14 +134,13 @@ async def process_mixed_text_with_google(text: str, ja_voice: str, vi_voice: str
         return "❌ Không tạo được file âm thanh.", ""
 
 # import asyncio
-# async def test_google_tts():
-#     text = "私は猫が好きです.Tôi thích mèo"
-#     ja_voice = "ja"   # giọng mặc định với Google TTS
-#     vi_voice = "vi"
-
-#     status, path = await process_mixed_text_with_google(text, ja_voice, vi_voice)
-#     print(status)
-#     print(f"Output path: {path}")
+# from tts.processor import process_mixed_text_with_edge
 
 # if __name__ == "__main__":
-#     asyncio.run(test_google_tts())
+#     # Ví dụ: tiếng Nhật và tiếng Việt
+#     text = "私は猫が好きです. Tôi thích mèo"
+#     ja_voice = "ja-JP-NanamiNeural"
+#     vi_voice = "vi-VN-NamMinhNeural"
+
+#     result = asyncio.run(process_mixed_text_with_edge(text, ja_voice, vi_voice))
+#     print(result)

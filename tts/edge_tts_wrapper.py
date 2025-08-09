@@ -13,11 +13,8 @@ class EdgeTTS(BaseTTS):
         return output_path
     
 
-async def convert_text_to_speech(text: str, voice: str, output_dir: str):
-    try:
-        filename = f"{text}.mp3"
-        output_path = os.path.join(output_dir, filename)
-
+async def convert_text_to_speech(text: str, voice: str, output_path: str):
+    try:       
         communicate = edge_tts.Communicate(text=text, voice=voice)
         await communicate.save(output_path)
         return output_path

@@ -23,7 +23,7 @@ GOOGLE_JA_VOICES = ["ja"]  # Google gTTS chỉ hỗ trợ mã ngôn ngữ, khôn
 GOOGLE_VI_VOICES = ["vi"]
 # OUTPUT
 OUTPUT_BASE_DIR = "outputs"
-
+os.environ["PATH"] += os.pathsep + os.path.abspath("ffmpeg/bin")
 # Setup ffmpeg env
 os.environ["PATH"] = os.path.dirname(FFMPEG_PATH) + os.pathsep + os.environ.get("PATH", "")
 os.environ["PATH"] = os.path.dirname(FFPROBE_PATH) + os.pathsep + os.environ.get("PATH", "")
