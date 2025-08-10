@@ -1,4 +1,4 @@
-import uvicorn
-from gui import app 
+from gui.app import app   # <-- import đúng biến app, không phải module
+
 if __name__ == "__main__":
-    uvicorn.run(app,port=10000)
+    app.launch(server_port=10000, server_name="0.0.0.0")
