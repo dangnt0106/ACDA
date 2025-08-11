@@ -2,8 +2,6 @@ import gradio as gr
 import asyncio
 import sys
 import os 
-import shutil
-import time
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from tts.processor import (
     process_mixed_text_with_edge,
@@ -24,24 +22,11 @@ def run_async(text, ja_voice, vi_voice):
     audio_file = result.get("merged") or result.get("ja") or result.get("vi")
     return "✅ Thành công!", audio_file
 
-def run_import_anki(csv_file, deck_name, tags, engine, progress=gr.Progress()):
+async def run_import_anki(csv_file, deck_name, tags, engine):
     try:
-        import_status = "⏳ Đang xử lý, vui lòng chờ..."
-        progress(0, desc=import_status)
-        temp_path = "temp_upload.csv"
-        shutil.copy(csv_file, temp_path)
-        result = import_csv_to_anki(
-            csv_file=temp_path,
-            deck_name=deck_name,
-            tags=tags.split(",") if tags else ["N4"],
-            engine=engine
-        )
-        os.remove(temp_path)
-        progress(1, desc="✅ Hoàn thành!")
+        result = await import_csv_to_anki(csv_file, deck_name, tags, engine)
         return f"Đã cập nhật: {result['updated']}, Thêm mới: {result['added']}"
     except Exception as e:
-        progress(1, desc="❌ Lỗi!")
-        print(f"Error: {e}")
         return f"❌ Đã xảy ra lỗi: {str(e)}"
 
 
@@ -104,8 +89,7 @@ def launch_gui():
                 import_btn.click(
                     fn=run_import_anki,
                     inputs=[csv_file, deck_name, tags, engine],
-                    outputs=import_status,
-                    show_progress=True
+                    outputs=import_status                    
                 )
     return demo
 
