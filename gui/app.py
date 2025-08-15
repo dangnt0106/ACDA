@@ -11,11 +11,11 @@ from config.config import VOICE_JA_TTS, VOICE_VI_TTS,GOOGLE_JA_VOICES, GOOGLE_VI
 from anki_integration.updateAnki import import_csv_to_anki
 
 
-def run_async(text, ja_voice, vi_voice):
+async def run_async(text, ja_voice, vi_voice):
     if not isinstance(ja_voice, str) or not isinstance(vi_voice, str):
         return "❌ Voice phải là kiểu chuỗi.", None
 
-    result = asyncio.run(process_mixed_text_with_edge(text, ja_voice, vi_voice))
+    result = await process_mixed_text_with_edge(text, ja_voice, vi_voice)
     if not result:
         return "❌ Lỗi xử lý.", None
 
@@ -52,9 +52,12 @@ def launch_gui():
                     with gr.Column(scale=3):
                         edge_audio = gr.Audio(label="Kết quả Audio", type="filepath", interactive=False)                   
 
-                save_btn.click(fn=run_async,
-                            inputs=[input_text, ja_voice_dropdown, vi_voice_dropdown],
-                            outputs=[edge_status, edge_audio])
+                save_btn.click(
+                    fn=run_async,
+                    inputs=[input_text, ja_voice_dropdown, vi_voice_dropdown],
+                    outputs=[edge_status, edge_audio],
+                    api_name="run_async"
+                )
 
             with gr.Tab("Google"):
                 gr.Markdown("### TTS bằng Google gTTS (miễn phí)")
@@ -71,10 +74,13 @@ def launch_gui():
                     with gr.Column(scale=3):
                         google_audio = gr.Audio(label="Kết quả Google Audio", type="filepath", interactive=False)      
 
+                    async def run_google_async(text, ja_voice, vi_voice):
+                        return await process_mixed_text_with_google(text, ja_voice, vi_voice)
                     google_save_btn.click(
-                        fn=process_mixed_text_with_google,
+                        fn=run_google_async,
                         inputs=[google_input, ja_voice, vi_voice],
-                        outputs=[google_status, google_audio]
+                        outputs=[google_status, google_audio],
+                        api_name="run_google_async"
                     )
             with gr.Tab("Update Anki từ CSV"):
                 gr.Markdown("### Import CSV vào Anki (có audio)")

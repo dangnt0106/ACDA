@@ -54,13 +54,24 @@ def merge_audios_to_np(audios: list[tuple[int, np.ndarray]]) -> tuple[int, np.nd
 
 def split_vi_ja_sentences(text: str) -> tuple[list[str], list[str]]:
     text = re.sub(r'\b[A-Z]:\s*', '', text)
-
     ja_pattern = r'[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9faf]'
     vi_pattern = r'[a-zA-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠàáâãèéêìíòóôõùúăđĩũơƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂưăạảấầẩẫậắằẳẵặẹẻẽềềểỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụủứừỬỮỰỲỴÝỶỸỳỵỷỹ]'
-    sentences = re.split(r'[.。?!？]', text)
+    # Tách câu theo dấu câu và cả dấu xuống dòng, giữ lại dấu câu cuối nếu có
+    sentences = re.split(r'([.。?!？\n\r])', text)
+    merged_sentences = []
+    buf = ''
+    for part in sentences:
+        if part in ['.', '。', '?', '！', '!', '？', '\n', '\r']:
+            buf += part
+            merged_sentences.append(buf.strip())
+            buf = ''
+        else:
+            buf += part
+    if buf.strip():
+        merged_sentences.append(buf.strip())
     vi_sentences = []
     ja_sentences = []
-    for s in sentences:
+    for s in merged_sentences:
         s = s.strip()
         if not s:
             continue

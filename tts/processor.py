@@ -15,49 +15,71 @@ from typing import Tuple
 edge_tts = EdgeTTS()
 
 async def process_mixed_text_with_edge(input_text, ja_voice, vi_voice):
+    def normalize(s):
+        return re.sub(r'\s+', '', s).strip('。.!?？. ')
     if isinstance(ja_voice, list):
         ja_voice = ja_voice[0]
     if isinstance(vi_voice, list):
         vi_voice = vi_voice[0]
     try:
-        # Sử dụng split_vi_ja_sentences để tách câu
+        # Log sentences split by split_vi_ja_sentences for debugging
         vi_sentences, ja_sentences = split_vi_ja_sentences(input_text)
-        ja_text = " ".join(ja_sentences)
-        vi_text = " ".join(vi_sentences)
+        # Synthesize trực tiếp từ danh sách đã tách, giữ thứ tự xuất hiện
+        all_sentences = []
+        # Tách text thành từng câu, xác định ngôn ngữ, giữ thứ tự
+        sentences = re.split(r'([.。?!？\n\r])', input_text)
+        buf = ''
+        for part in sentences:
+            if part in ['.', '。', '?', '！', '!', '？', '\n', '\r']:
+                buf += part
+                s = buf.strip()
+                if not s:
+                    buf = ''
+                    continue
+                if any(re.search(pattern, s) for pattern in [r'[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9faf]']):
+                    all_sentences.append(('ja', s))
+                elif any(re.search(pattern, s) for pattern in [r'[a-zA-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠàáâãèéêìíòóôõùúăđĩũơƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂưăạảấầẩẫậắằẳẵặẹẻẽềềểỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụủứừỬỮỰỲỴÝỶỸỳỵỷỹ]']):
+                    all_sentences.append(('vi', s))
+                buf = ''
+            else:
+                buf += part
+        if buf.strip():
+            s = buf.strip()
+            if any(re.search(pattern, s) for pattern in [r'[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9faf]']):
+                all_sentences.append(('ja', s))
+            elif any(re.search(pattern, s) for pattern in [r'[a-zA-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠàáâãèéêìíòóôõùúăđĩũơƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂưăạảấầẩẫậắằẳẵặẹẻẽềềểỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụủứừỬỮỰỲỴÝỶỸỳỵỷỹ]']):
+                all_sentences.append(('vi', s))
 
         output_dir = ensure_output_dir(OUTPUT_BASE_DIR)
+        audio_paths = []
+        jp_count = 1
+        vi_count = 1
+
+        for lang, sentence in all_sentences:
+            # ...existing code...
+            if lang == 'ja':
+                voice = ja_voice
+                filename = f"jp_{jp_count}.mp3"
+                jp_count += 1
+            else:
+                voice = vi_voice
+                filename = f"vi_{vi_count}.mp3"
+                vi_count += 1
+            path = os.path.join(output_dir, filename)
+            try:
+                await edge_tts.synthesize(sentence, voice, path)
+                if os.path.exists(path):
+                    audio_paths.append(path)
+            except Exception as e:
+                pass
+
+        # Merge tất cả file audio theo đúng thứ tự
         output_paths = {}
-
-        # Xử lý tiếng Nhật
-        if ja_text:
-            ja_path = os.path.join(output_dir, f"{ja_text}.mp3")
-            try:
-                await edge_tts.synthesize(ja_text, ja_voice, ja_path)
-                log(f"[INFO] ✅ Japanese audio saved: {ja_path}")
-                output_paths['ja'] = ja_path
-            except Exception as e:
-                log(f"[ERROR] ❌ Edge TTS Japanese error: {e}")
-                ja_path = None
-
-        # Xử lý tiếng Việt
-        if vi_text:
-            vi_hash = hashlib.md5(vi_text.encode('utf-8')).hexdigest()[:8]
-            vi_path = os.path.join(output_dir, f"vn_{vi_hash}.mp3")
-            try:
-                await edge_tts.synthesize(vi_text, vi_voice, vi_path)
-                log(f"[INFO] ✅ Vietnamese audio saved: {vi_path}")
-                output_paths['vi'] = vi_path
-            except Exception as e:
-                log(f"[ERROR] ❌ Edge TTS Vietnamese error: {e}")
-                vi_path = None
-
-        if 'ja' in output_paths and 'vi' in output_paths:
-            merged_path = os.path.join(output_dir, clean_filename(ja_text) + '_vn_merged.mp3')
-            merged = merge_audio_files(output_paths['ja'], output_paths['vi'], merged_path)
-            if merged:
-                output_paths['merged'] = merged
-                log(f'✅ Merged audio available at: {merged}')
-
+        if audio_paths:
+            merged_path = os.path.join(output_dir, "merged_output.mp3")
+            merge_audio_files(*audio_paths, output_path=merged_path)
+            output_paths['merged'] = merged_path
+            log(f'✅ Merged audio available at: {merged_path}')
         return output_paths
     except Exception as e:
         log(f'❌ Processing error: {e}')
@@ -69,50 +91,54 @@ def normalize(s):
 
 async def process_mixed_text_with_google(text: str, ja_voice: str, vi_voice: str) -> Tuple[str, str]:
     vi_sentences, ja_sentences = split_vi_ja_sentences(text)
-    # Tạo list các câu theo đúng thứ tự xuất hiện
-    # Tìm vị trí từng câu trong text gốc để giữ thứ tự
-    
-
+    # Synthesize trực tiếp từ danh sách đã tách, giữ thứ tự xuất hiện
     all_sentences = []
-    for s in re.split(r'[.。?!？]', text):
-        s = s.strip()
-        if not s:
-            continue
-        s_norm = normalize(s)
-        found = False
-        for ja in ja_sentences:
-            if normalize(ja) == s_norm:
+    sentences = re.split(r'([.。?!？\n\r])', text)
+    buf = ''
+    for part in sentences:
+        if part in ['.', '。', '?', '！', '!', '？', '\n', '\r']:
+            buf += part
+            s = buf.strip()
+            if not s:
+                buf = ''
+                continue
+            if any(re.search(pattern, s) for pattern in [r'[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9faf]']):
                 all_sentences.append(('ja', s))
-                found = True
-                break
-        if not found:
-            for vi in vi_sentences:
-                if normalize(vi) == s_norm:
-                    all_sentences.append(('vi', s))
-                    break
+            elif any(re.search(pattern, s) for pattern in [r'[a-zA-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠàáâãèéêìíòóôõùúăđĩũơƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂưăạảấầẩẫậắằẳẵặẹẻẽềềểỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụủứừỬỮỰỲỴÝỶỸỳỵỷỹ]']):
+                all_sentences.append(('vi', s))
+            buf = ''
+        else:
+            buf += part
+    if buf.strip():
+        s = buf.strip()
+        if any(re.search(pattern, s) for pattern in [r'[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9faf]']):
+            all_sentences.append(('ja', s))
+        elif any(re.search(pattern, s) for pattern in [r'[a-zA-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠàáâãèéêìíòóôõùúăđĩũơƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂưăạảấầẩẫậắằẳẵặẹẻẽềềểỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụủứừỬỮỰỲỴÝỶỸỳỵỷỹ]']):
+            all_sentences.append(('vi', s))
 
     output_dir = ensure_output_dir(OUTPUT_BASE_DIR)
     tts = GoogleTTS()
     audio_paths = []
+    jp_count = 1
+    vi_count = 1
 
     for lang, sentence in all_sentences:
-        print(f"Đang synthesize: {lang} - {sentence}")
+    # ...existing code...
         if lang == 'ja':
             voice = ja_voice
-            filename = f"ja_{hashlib.md5(sentence.encode('utf-8')).hexdigest()[:8]}.mp3"
+            filename = f"jp_{jp_count}.mp3"
+            jp_count += 1
         else:
             voice = vi_voice
-            filename = f"vi_{hashlib.md5(sentence.encode('utf-8')).hexdigest()[:8]}.mp3"
+            filename = f"vi_{vi_count}.mp3"
+            vi_count += 1
         path = os.path.join(output_dir, filename)
         try:
             await tts.synthesize(sentence, voice, path)
             if os.path.exists(path):
-                print(f"Đã tạo file: {path}")
                 audio_paths.append(path)
-            else:
-                print(f"Không tạo được file: {path}")
         except Exception as e:
-            print(f"[ERROR] ❌ Google TTS {lang} error: {e}")
+            pass
 
     # Merge tất cả file audio theo đúng thứ tự
     if audio_paths:
@@ -122,14 +148,17 @@ async def process_mixed_text_with_google(text: str, ja_voice: str, vi_voice: str
     else:
         return "❌ Không tạo được file âm thanh.", ""
 
-import asyncio
+# import asyncio
 
-if __name__ == "__main__":
-    # Ví dụ: tiếng Nhật và tiếng Việt
-    text = "Tách văn bản tiếng Việt và tiếng Nhật. これは日本語のテキストです。"
-    ja_voice = "ja-JP-NanamiNeural"
-    vi_voice = "vi-VN-NamMinhNeural"
-    ja_gg = "jp"
-    vi_gg = "vi"
-    result = asyncio.run(process_mixed_text_with_google(text, ja_gg, vi_gg))
-    print(result)
+# if __name__ == "__main__":
+#     # Ví dụ: tiếng Nhật và tiếng Việt
+#     text = "Tách văn bản tiếng Việt và tiếng Nhật. これは日本語のテキストです。\n" \
+#            "A:少しも分からない。\n" \
+#            "B:Một chút cũng không biết."
+#     ja_voice = "ja-JP-NanamiNeural"
+#     vi_voice = "vi-VN-NamMinhNeural"
+#     ja_gg = "jp"
+#     vi_gg = "vi"
+#     #result = asyncio.run(process_mixed_text_with_google(text, ja_gg, vi_gg))
+#     result = asyncio.run(process_mixed_text_with_edge(text, ja_voice, vi_voice))
+#     print(result)
