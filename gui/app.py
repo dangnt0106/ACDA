@@ -2,8 +2,6 @@ import gradio as gr
 import asyncio
 import sys
 import os 
-import shutil
-import time
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from tts.processor import (
     process_mixed_text_with_edge,
@@ -13,35 +11,32 @@ from config.config import VOICE_JA_TTS, VOICE_VI_TTS,GOOGLE_JA_VOICES, GOOGLE_VI
 from anki_integration.updateAnki import import_csv_to_anki
 
 
-def run_async(text, ja_voice, vi_voice):
+async def run_async(text, ja_voice, vi_voice):
     if not isinstance(ja_voice, str) or not isinstance(vi_voice, str):
         return "❌ Voice phải là kiểu chuỗi.", None
 
-    result = asyncio.run(process_mixed_text_with_edge(text, ja_voice, vi_voice))
+    result = await process_mixed_text_with_edge(text, ja_voice, vi_voice)
     if not result:
         return "❌ Lỗi xử lý.", None
 
     audio_file = result.get("merged") or result.get("ja") or result.get("vi")
     return "✅ Thành công!", audio_file
 
-def run_import_anki(csv_file, deck_name, tags, engine, progress=gr.Progress()):
+async def run_import_anki(csv_file, deck_name, tags, engine):
     try:
-        import_status = "⏳ Đang xử lý, vui lòng chờ..."
-        progress(0, desc=import_status)
-        temp_path = "temp_upload.csv"
-        shutil.copy(csv_file, temp_path)
-        result = import_csv_to_anki(
-            csv_file=temp_path,
-            deck_name=deck_name,
-            tags=tags.split(",") if tags else ["N4"],
-            engine=engine
-        )
-        os.remove(temp_path)
-        progress(1, desc="✅ Hoàn thành!")
+        # Xử lý đường dẫn file CSV nếu là file object
+        if hasattr(csv_file, 'name'):
+            csv_path = csv_file.name
+        else:
+            csv_path = str(csv_file)
+        # Xử lý tags: nếu là chuỗi thì tách thành list
+        if isinstance(tags, str):
+            tags_list = [t.strip() for t in tags.split(',') if t.strip()]
+        else:
+            tags_list = tags
+        result = await import_csv_to_anki(csv_path, deck_name, tags_list, engine)
         return f"Đã cập nhật: {result['updated']}, Thêm mới: {result['added']}"
     except Exception as e:
-        progress(1, desc="❌ Lỗi!")
-        print(f"Error: {e}")
         return f"❌ Đã xảy ra lỗi: {str(e)}"
 
 
@@ -67,9 +62,12 @@ def launch_gui():
                     with gr.Column(scale=3):
                         edge_audio = gr.Audio(label="Kết quả Audio", type="filepath", interactive=False)                   
 
-                save_btn.click(fn=run_async,
-                            inputs=[input_text, ja_voice_dropdown, vi_voice_dropdown],
-                            outputs=[edge_status, edge_audio])
+                save_btn.click(
+                    fn=run_async,
+                    inputs=[input_text, ja_voice_dropdown, vi_voice_dropdown],
+                    outputs=[edge_status, edge_audio],
+                    api_name="run_async"
+                )
 
             with gr.Tab("Google"):
                 gr.Markdown("### TTS bằng Google gTTS (miễn phí)")
@@ -86,10 +84,13 @@ def launch_gui():
                     with gr.Column(scale=3):
                         google_audio = gr.Audio(label="Kết quả Google Audio", type="filepath", interactive=False)      
 
+                    async def run_google_async(text, ja_voice, vi_voice):
+                        return await process_mixed_text_with_google(text, ja_voice, vi_voice)
                     google_save_btn.click(
-                        fn=process_mixed_text_with_google,
+                        fn=run_google_async,
                         inputs=[google_input, ja_voice, vi_voice],
-                        outputs=[google_status, google_audio]
+                        outputs=[google_status, google_audio],
+                        api_name="run_google_async"
                     )
             with gr.Tab("Update Anki từ CSV"):
                 gr.Markdown("### Import CSV vào Anki (có audio)")
@@ -104,8 +105,7 @@ def launch_gui():
                 import_btn.click(
                     fn=run_import_anki,
                     inputs=[csv_file, deck_name, tags, engine],
-                    outputs=import_status,
-                    show_progress=True
+                    outputs=import_status                    
                 )
     return demo
 
