@@ -24,7 +24,17 @@ async def run_async(text, ja_voice, vi_voice):
 
 async def run_import_anki(csv_file, deck_name, tags, engine):
     try:
-        result = await import_csv_to_anki(csv_file, deck_name, tags, engine)
+        # Xử lý đường dẫn file CSV nếu là file object
+        if hasattr(csv_file, 'name'):
+            csv_path = csv_file.name
+        else:
+            csv_path = str(csv_file)
+        # Xử lý tags: nếu là chuỗi thì tách thành list
+        if isinstance(tags, str):
+            tags_list = [t.strip() for t in tags.split(',') if t.strip()]
+        else:
+            tags_list = tags
+        result = await import_csv_to_anki(csv_path, deck_name, tags_list, engine)
         return f"Đã cập nhật: {result['updated']}, Thêm mới: {result['added']}"
     except Exception as e:
         return f"❌ Đã xảy ra lỗi: {str(e)}"

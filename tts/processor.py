@@ -152,7 +152,7 @@ async def process_mixed_text_with_google(text: str, ja_voice: str, vi_voice: str
 
 # if __name__ == "__main__":
 #     # Ví dụ: tiếng Nhật và tiếng Việt
-#     text = "Tách văn bản tiếng Việt và tiếng Nhật. これは日本語のテキストです。\n" \
+#     text = "Tôi thích mèo。私は猫が好きです。Tôi thích gà。私は好きです?Tôi thích chó.\n" \
 #            "A:少しも分からない。\n" \
 #            "B:Một chút cũng không biết."
 #     ja_voice = "ja-JP-NanamiNeural"
