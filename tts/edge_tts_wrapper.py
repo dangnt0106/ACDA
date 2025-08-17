@@ -1,7 +1,7 @@
 # tts/edge_tts_wrapper.py
 import edge_tts
 import os
-from tts.audio_utils import ensure_output_dir
+from utils.file_utils import ensure_output_dir
 from utils.log import log
 from tts.base import BaseTTS
 
