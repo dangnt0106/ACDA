@@ -28,4 +28,3 @@ def test_clean_filename():
 def test_ensure_output_dir():
     path = ensure_output_dir("outputs")
     assert os.path.exists(path)
-

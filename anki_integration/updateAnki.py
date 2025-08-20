@@ -1,4 +1,5 @@
 import csv
+import re
 import shutil
 import os
 from anki_integration.callAnki import callAnki
@@ -23,9 +24,25 @@ async def import_csv_to_anki(
             if not row or len(row) < 1:
                 continue
 
-            jp_word = clean_filename(row[0])
-            vi_meaning = clean_filename(row[1]) if len(row) > 1 else ""
+            jp_word = str(row[0]).replace('\ufeff', '').strip()
+            if jp_word.startswith('"'):
+                jp_word = jp_word[1:]
+            if jp_word.endswith('"'):
+                jp_word = jp_word[:-1]
 
+                # Xử lý trường Back tương tự như Front
+            vi_meaning = str(row[1]).replace('\ufeff', '').strip() if len(row) > 1 else ""
+            if vi_meaning.startswith('"'):
+                    vi_meaning = vi_meaning[1:]
+            if vi_meaning.endswith('"'):
+                    vi_meaning = vi_meaning[:-1]
+                # Giữ nguyên xuống dòng, không clean_filename ở đây
+            print(f"[LOG] Front (jp_word) trước khi lưu vào Anki: {repr(jp_word)}")
+            print(f"[LOG] Back (vi_meaning) trước khi lưu vào Anki: {repr(vi_meaning)}")
+
+                # Tách câu B từ jp_word
+            match_b = re.search(r'(B:.*)', jp_word)
+            b_sentence = match_b.group(1).strip() if match_b else ""
 
 
             # Tạo audio cho từng từ/câu tiếng Nhật (Audio 1)
@@ -52,6 +69,38 @@ async def import_csv_to_anki(
                         shutil.copy(jp_path_1, audio_path_candidate_1)
                         audio_path_1 = audio_path_candidate_1
 
+            # Tạo audio riêng cho câu B nếu có
+            audio_field_2 = ""
+            if b_sentence:
+                audio_filename_b = f"b_{short_hash(b_sentence)}.mp3"
+                audio_path_b = None
+                if engine == "edge":
+                    result_b = await process_mixed_text_with_edge(b_sentence, ja_voice="ja-JP-NanamiNeural", vi_voice="vi-VN-PhuongNeural")
+                    audio_path_candidate_b = os.path.join(os.path.dirname(result_b.get("merged")), audio_filename_b)
+                    if os.path.exists(audio_path_candidate_b):
+                        audio_path_b = audio_path_candidate_b
+                    else:
+                        if result_b.get("jp_1.mp3"):
+                            src_path_b = os.path.join(os.path.dirname(result_b.get("merged")), "jp_1.mp3")
+                            shutil.copy(src_path_b, audio_path_candidate_b)
+                            audio_path_b = audio_path_candidate_b
+                else:
+                    status_b, temp_audio_path_b = await process_mixed_text_with_google(b_sentence, ja_voice="ja", vi_voice="vi")
+                    audio_path_candidate_b = os.path.join(os.path.dirname(temp_audio_path_b), audio_filename_b)
+                    if os.path.exists(audio_path_candidate_b):
+                        audio_path_b = audio_path_candidate_b
+                    else:
+                        jp_path_b = os.path.join(os.path.dirname(temp_audio_path_b), "jp_1.mp3")
+                        if os.path.exists(jp_path_b):
+                            shutil.copy(jp_path_b, audio_path_candidate_b)
+                            audio_path_b = audio_path_candidate_b
+                if audio_path_b and os.path.exists(audio_path_b):
+                    audio_file_b = clean_filename(os.path.basename(audio_path_b))
+                    audio_dest_b = os.path.join(ANKI_MEDIA_DIR, audio_file_b)
+                    if audio_path_b != audio_dest_b:
+                        if audio_path_b and audio_dest_b and os.path.abspath(audio_path_b) != os.path.abspath(audio_dest_b):
+                            shutil.copy(audio_path_b, audio_dest_b)
+                    audio_field_2 = f"[sound:{audio_file_b}]"
             if not audio_path_1 or not os.path.exists(audio_path_1):
                 continue
 
